@@ -1,0 +1,75 @@
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+import dask.dataframe as dd
+from dask.diagnostics import ProgressBar
+import numpy as np
+
+
+"""reduce memory usage by iterating through all the columns of a dataframe and mofidying the data type"""
+def reduce_memory_usage(df):
+  start_mem = df.memory_usage().sum() / 1024**2
+  print('memory usage of dataframe is {:.2f} MB'.format(start_mem))
+
+  for col in df.columns:
+        col_type = df[col].dtype
+        
+        if col_type != object:
+            c_min = df[col].min()
+            c_max = df[col].max()
+            if str(col_type)[:3] == 'int':
+                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
+                    df[col] = df[col].astype(np.int8)
+                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
+                    df[col] = df[col].astype(np.int16)
+                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                    df[col] = df[col].astype(np.int32)
+                elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
+                    df[col] = df[col].astype(np.int64)  
+            else:
+                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
+                    df[col] = df[col].astype(np.float16)
+                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                    df[col] = df[col].astype(np.float32)
+                else:
+                    df[col] = df[col].astype(np.float64)
+        else:
+            df[col] = df[col].astype('category')
+
+    end_mem = df.memory_usage().sum() / 1024**2
+    print('Memory usage after optimization is: {:.2f} MB'.format(end_mem))
+    print('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) / start_mem))
+    
+    return df
+
+"""reading the data"""
+def read_data(file_name):
+  df = pd.read_csv(file.name)
+  df = reduce_memory_usage(df)
+  return df
+
+
+"""Joining on case_id; read in each file, reduce memory usage, and join it to the base dataframe"""
+file_names = [
+    'train_applprev_1_0.csv', 'train_applprev_1_1.csv', 'train_applprev_2.csv',
+    'train_base.csv', 'train_credit_bureau_a_1_0.csv', 'train_credit_bureau_a_1_1.csv',
+    'train_credit_bureau_a_1_2.csv', 'train_credit_bureau_a_1_3.csv', 'train_credit_bureau_a_2_0.csv',
+    'train_credit_bureau_a_2_1.csv', 'train_credit_bureau_a_2_2.csv', 'train_credit_bureau_a_2_3.csv',
+    'train_credit_bureau_b_1.csv', 'train_credit_bureau_b_2.csv', 'train_debitcard_1.csv',
+    'train_deposit_1.csv', 'train_other_1.csv', 'train_person_1.csv', 'train_person_2.csv',
+    'train_static_0_0.csv', 'train_static_0_1.csv', 'train_static_cb_0.csv',
+    'train_tax_registry_a_1.csv', 'train_tax_registry_b_1.csv', 'train_tax_registry_c_1.csv'
+]
+
+base-df = pd.read_csv('path_to_data/train_base.csv')
+base_df = reduce_memory_usage(base_df)
+
+for file_name in file_names:
+  temp_df = pd.read_csv(f'path_to_data/{file_name}')
+  temp_df = reduce_memory_usage(temp_df)
+  base_df = base_df.merge(temp_df, on = 'case_id', how = 'left')
+
+base_df.to_csv('path_to_data/merged_train.csv', index = False)
+
