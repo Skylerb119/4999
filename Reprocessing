@@ -71,5 +71,19 @@ for file_name in file_names:
   temp_df = reduce_memory_usage(temp_df)
   base_df = base_df.merge(temp_df, on = 'case_id', how = 'left')
 
-base_df.to_csv('path_to_data/merged_train.csv', index = False)
+  # Load the CSV file
+  df = pd.read_csv('merged_train.csv')
 
+  # Handle Missing Values: Drop rows with any missing values
+  df.dropna(inplace=True)
+
+  # Remove Duplicates: Remove duplicate rows
+  df.drop_duplicates(inplace=True)
+
+  # Transform Data: Convert data types or encode categorical variables if needed
+  # df['categorical_column'] = pd.Categorical(df['categorical_column'])
+
+  # Save the cleaned dataset
+  df.to_csv('cleaned_dataset.csv', index=False)
+
+base_df.to_csv('path_to_data/merged_train.csv', index = False)
