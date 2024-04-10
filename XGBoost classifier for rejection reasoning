@@ -1,0 +1,29 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+from sklearn.metrics import accuracy_score, classification_report
+
+# Encode the target variable if it's categorical
+#'rejection_reason' is assumed to be the target column
+target_encoder = OneHotEncoder(sparse=False, handle_unknown='ignore')
+encoded_target = target_encoder.fit_transform(base_df[['rejection_reason']])
+target_df = pd.DataFrame(encoded_target, columns=target_encoder.get_feature_names(['rejection_reason']))
+
+# Prepare the features and target variable
+X = base_df.drop('rejection_reason', axis=1)
+y = target_df
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Initialize and train the XGBoost classifier
+model = XGBClassifier(use_label_encoder=False, eval_metric='mlogloss')
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print(f'Accuracy: {accuracy * 100:.2f}%')
+print(classification_report(y_test, y_pred))
