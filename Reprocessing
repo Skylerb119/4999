@@ -87,3 +87,39 @@ for file_name in file_names:
   df.to_csv('cleaned_dataset.csv', index=False)
 
 base_df.to_csv('path_to_data/merged_train.csv', index = False)
+
+
+#new for this week 4/9
+from datetime import datetime
+
+def preprocess_data(df):
+    # Fill in missing values with the mean for numerical columns
+    numerical_columns = df.select_dtypes(include=[np.number]).columns
+    for column in numerical_columns:
+        df[column].fillna(df[column].mean(), inplace=True)
+
+    #calculate age using 'DOB' columns
+    if 'DOB' in df.columns:
+        # Convert 'DOB' to datetime and calculate age
+        df['DOB'] = pd.to_datetime(df['DOB'])
+        df['Age'] = df['DOB'].apply(lambda x: datetime.now().year - x.year)
+    return df
+
+    # Read and process base dataset
+    base_df = pd.read_csv('path_to_data/train_base.csv')
+    base_df = reduce_memory_usage(base_df)
+
+    # Merge with other datasets and process
+    for file_name in file_names:
+        temp_df = pd.read_csv(f'path_to_data/{file_name}')
+        temp_df = reduce_memory_usage(temp_df)
+        base_df = base_df.merge(temp_df, on='case_id', how='left')
+
+    # Preprocess the merged dataset (fill missing values and calculate age)
+    base_df = preprocess_data(base_df)
+    
+    #removing duplicates
+    base_df.drop_duplicates(inplace=True)
+
+    # Save the cleaned and merged dataset
+    base_df.to_csv('merged_train_cleaned.csv', index=False)
