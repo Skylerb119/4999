@@ -1,0 +1,36 @@
+import pandas as pd
+
+file_names = [
+    'train_applprev_1_0.csv', 'train_applprev_1_1.csv', 'train_applprev_2.csv',
+    'train_base.csv', 'train_credit_bureau_a_1_0.csv', 'train_credit_bureau_a_1_1.csv',
+    'train_credit_bureau_a_1_2.csv', 'train_credit_bureau_a_1_3.csv', 'train_credit_bureau_a_2_0.csv',
+    'train_credit_bureau_a_2_1.csv', 'train_credit_bureau_a_2_2.csv', 'train_credit_bureau_a_2_3.csv',
+    'train_credit_bureau_b_1.csv', 'train_credit_bureau_b_2.csv', 'train_debitcard_1.csv',
+    'train_deposit_1.csv', 'train_other_1.csv', 'train_person_1.csv', 'train_person_2.csv',
+    'train_static_0_0.csv', 'train_static_0_1.csv', 'train_static_cb_0.csv',
+    'train_tax_registry_a_1.csv', 'train_tax_registry_b_1.csv', 'train_tax_registry_c_1.csv'
+]
+
+dataframes_dict = {}
+
+for file in file_names:
+    df = pd.read_csv(file, nrows=100)
+
+    # Generate a key to group files
+    parts = file.split('_')
+    if '.' in parts[-1]:  # Check if there is a version number with major and minor
+        version_key = '_'.join(parts[:-1]) + '_' + parts[-1].split('.')[0]  # Ignore minor version
+    else:
+        version_key = '_'.join(parts[:-1])  # For files without a version number
+
+    # Append or create new dataframe in the dictionary
+    if version_key in dataframes_dict:
+        dataframes_dict[version_key] = pd.concat([dataframes_dict[version_key], df])
+    else:
+        dataframes_dict[version_key] = df
+
+# Save each grouped dataframe to a new file
+for version_key, dataframe in dataframes_dict.items():
+    output_filename = f'{version_key}_combined.csv'
+    dataframe.to_csv(output_filename, index=False)
+    print(f'Saved {output_filename}')
