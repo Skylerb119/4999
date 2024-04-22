@@ -1,19 +1,13 @@
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-import dask.dataframe as dd
-from dask.diagnostics import ProgressBar
 import numpy as np
+from datetime import datetime
 
-
-"""reduce memory usage by iterating through all the columns of a dataframe and mofidying the data type"""
+# Define a function to reduce the memory usage of DataFrame columns
 def reduce_memory_usage(df):
-  start_mem = df.memory_usage().sum() / 1024**2
-  print('memory usage of dataframe is {:.2f} MB'.format(start_mem))
-
-  for col in df.columns:
+    start_mem = df.memory_usage().sum() / 1024**2
+    print(f'Memory usage of the dataframe is {start_mem:.2f} MB')
+    
+    for col in df.columns:
         col_type = df[col].dtype
         
         if col_type != object:
@@ -39,17 +33,17 @@ def reduce_memory_usage(df):
             df[col] = df[col].astype('category')
 
     end_mem = df.memory_usage().sum() / 1024**2
-    print('Memory usage after optimization is: {:.2f} MB'.format(end_mem))
-    print('Decreased by {:.1f}%'.format(100 * (start_mem - end_mem) / start_mem))
+    print(f'Memory usage after optimization is: {end_mem:.2f} MB')
+    print(f'Decreased by {(100 * (start_mem - end_mem) / start_mem):.1f}%')
     
     return df
 
-"""reading the data"""
-def read_data(file_name):
-  df = pd.read_csv(file.name)
-  df = reduce_memory_usage(df)
-  return df
-
+# Define a function to read and process each file
+def read_and_process(file_name):
+    # Read the file, set low_memory to False to prevent mixed type inference
+    df = pd.read_csv(file_name, low_memory=False)
+    df = reduce_memory_usage(df)
+    return df
 
 """Joining on case_id; read in each file, reduce memory usage, and join it to the base dataframe"""
 file_names = [
@@ -62,64 +56,36 @@ file_names = [
     'train_static_0_0.csv', 'train_static_0_1.csv', 'train_static_cb_0.csv',
     'train_tax_registry_a_1.csv', 'train_tax_registry_b_1.csv', 'train_tax_registry_c_1.csv'
 ]
+# Read and reduce memory usage of the base DataFrame
+base_df = read_and_process(file_names[0])
 
-base-df = pd.read_csv('path_to_data/train_base.csv')
-base_df = reduce_memory_usage(base_df)
+# Iteratively merge files into the base DataFrame
+for file_name in file_names[1:]:
+    temp_df = read_and_process(file_name)
+    # Merge while ensuring no overlapping columns other than 'case_id'
+    base_df = base_df.merge(temp_df, on='case_id', how='left', suffixes=('', '_from_' + file_name.rstrip('.csv')))
 
-for file_name in file_names:
-  temp_df = pd.read_csv(f'path_to_data/{file_name}')
-  temp_df = reduce_memory_usage(temp_df)
-  base_df = base_df.merge(temp_df, on = 'case_id', how = 'left')
-
-  # Load the CSV file
-  df = pd.read_csv('merged_train.csv')
-
-  # Handle Missing Values: Drop rows with any missing values
-  df.dropna(inplace=True)
-
-  # Remove Duplicates: Remove duplicate rows
-  df.drop_duplicates(inplace=True)
-
-  # Transform Data: Convert data types or encode categorical variables if needed
-  # df['categorical_column'] = pd.Categorical(df['categorical_column'])
-
-  # Save the cleaned dataset
-  df.to_csv('cleaned_dataset.csv', index=False)
-
-base_df.to_csv('path_to_data/merged_train.csv', index = False)
-
-
-#new for this week 4/9
-from datetime import datetime
-
+# Function to preprocess the data
 def preprocess_data(df):
-    # Fill in missing values with the mean for numerical columns
-    numerical_columns = df.select_dtypes(include=[np.number]).columns
-    for column in numerical_columns:
-        df[column].fillna(df[column].mean(), inplace=True)
+    # Handle missing values for numeric columns by replacing them with the mean
+    for column in df.select_dtypes(include=[np.number]).columns:
+        if df[column].isnull().any():
+            df[column].fillna(df[column].mean(), inplace=True)
 
-    #calculate age using 'DOB' columns
+    # Calculate age using 'DOB' columns if present
     if 'DOB' in df.columns:
-        # Convert 'DOB' to datetime and calculate age
         df['DOB'] = pd.to_datetime(df['DOB'])
         df['Age'] = df['DOB'].apply(lambda x: datetime.now().year - x.year)
     return df
 
-    # Read and process base dataset
-    base_df = pd.read_csv('train_base.csv')
-    base_df = reduce_memory_usage(base_df)
+# Apply the preprocessing function to the base DataFrame
+base_df = preprocess_data(base_df)
 
-    # Merge with other datasets and process
-    for file_name in file_names:
-        temp_df = pd.read_csv(f'path_to_data/{file_name}')
-        temp_df = reduce_memory_usage(temp_df)
-        base_df = base_df.merge(temp_df, on='case_id', how='left')
+# Drop rows with any missing values and remove duplicate rows
+base_df.dropna(inplace=True)
+base_df.drop_duplicates(inplace=True)
 
-    # Preprocess the merged dataset (fill missing values and calculate age)
-    base_df = preprocess_data(base_df)
-    
-    #removing duplicates
-    base_df.drop_duplicates(inplace=True)
+# Save the cleaned and merged dataset
+base_df.to_csv('merged_test_cleaned.csv', index=False)
 
-    # Save the cleaned and merged dataset
-    base_df.to_csv('merged_train_cleaned.csv', index=False)
+print("Data processing complete. The cleaned data is saved as 'merged_test_cleaned.csv'.")
